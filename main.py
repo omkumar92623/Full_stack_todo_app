@@ -2,7 +2,6 @@ from fastapi import FastAPI, Depends,HTTPException
 from sqlalchemy import create_engine,Column,Integer,VARCHAR,Boolean
 from sqlalchemy.orm import DeclarativeBase,Session,sessionmaker
 from typing import Annotated 
-from pydantic import BaseModel
 
 import os
 from dotenv import load_dotenv
