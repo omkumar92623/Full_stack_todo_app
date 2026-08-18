@@ -1,12 +1,21 @@
+import os
 from fastapi import FastAPI, Depends,HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import create_engine,Column,Integer,VARCHAR,Boolean
 from sqlalchemy.orm import DeclarativeBase,Session,sessionmaker
 from typing import Annotated 
+from pydantic import BaseModel
 
-import os
 from dotenv import load_dotenv
 
 app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 load_dotenv()
 
@@ -30,6 +39,9 @@ SessionLocal = sessionmaker(autoflush=False,autocommit = False,bind=engine)
 class Base(DeclarativeBase):
     pass
 
+class Create_Todo(BaseModel):
+    title:str
+
 class Todo(Base):
     __tablename__ = "todos"
 
@@ -49,8 +61,8 @@ def get_db():
 DBSession = Annotated[Session,Depends(get_db)]
 
 @app.post("/todos")
-def create_todo(title:str,db:DBSession):
-    todo = Todo(title=title)
+def create_todo(title:Create_Todo,db:DBSession):
+    todo = Todo(title=title.title)
     db.add(todo)
     db.commit()
     db.refresh(todo)
@@ -72,9 +84,16 @@ def get_todo(todo_id:int,db:DBSession):
 
 @app.get("/todos")
 def read_all(db:DBSession):
-    todo = db.query(Todo).all()
-    return{
-        "Data" : todo
+    todos = db.query(Todo).all()
+    return {
+        "Data": [
+            {
+                "id": todo.id,
+                "title": todo.title,
+                "completed": todo.completed
+            }
+            for todo in todos
+        ]
     }
 
 
