@@ -1,14 +1,19 @@
 import os
-from fastapi import FastAPI, Depends,HTTPException
+from fastapi import FastAPI, Depends,HTTPException,Request
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import create_engine,Column,Integer,VARCHAR,Boolean
 from sqlalchemy.orm import DeclarativeBase,Session,sessionmaker
 from typing import Annotated 
 from pydantic import BaseModel
+from slowapi.errors import RateLimitExceeded
+from fastapi.responses import JSONResponse
+from limiter import limiter
 
 from dotenv import load_dotenv
 
 app = FastAPI()
+app.state.limiter = limiter
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -60,8 +65,19 @@ def get_db():
 
 DBSession = Annotated[Session,Depends(get_db)]
 
+
+@app.exception_handler(RateLimitExceeded)
+def rate_limit_handler(request:Request, exc:RateLimitExceeded):
+    return JSONResponse(
+        status_code=429,
+        content={
+            "detail": "Too many requests"
+        })
+
+
 @app.post("/todos")
-def create_todo(title:Create_Todo,db:DBSession):
+@limiter.limit("5/minute")
+def create_todo(request:Request,title:Create_Todo,db:DBSession):
     todo = Todo(title=title.title)
     db.add(todo)
     db.commit()
@@ -98,7 +114,8 @@ def read_all(db:DBSession):
 
 
 @app.put("/todos/{todo_id}")
-def update_todo(todo_id:int,completed:bool,db:DBSession):
+@limiter.limit("5/minute")
+def update_todo(request:Request,todo_id:int,completed:bool,db:DBSession):
     todo = db.query(Todo).filter(todo_id == Todo.id).first()
     if not todo:
         raise HTTPException(
