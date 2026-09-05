@@ -1,4 +1,3 @@
-import os
 from fastapi import FastAPI, Depends,HTTPException,Request
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import create_engine,Column,Integer,VARCHAR,Boolean
@@ -8,31 +7,26 @@ from pydantic import BaseModel
 from slowapi.errors import RateLimitExceeded
 from fastapi.responses import JSONResponse
 from limiter import limiter
-
-from dotenv import load_dotenv
+from config import settings
 
 app = FastAPI()
 app.state.limiter = limiter
 
+origins = settings.ORIGINS
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-load_dotenv()
 
-MYSQL_USER = os.getenv("MYSQL_USER")
-MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD")
-MYSQL_HOST = os.getenv("MYSQL_HOST")
-MYSQL_PORT = os.getenv("MYSQL_PORT")
-MYSQL_DATABASE = os.getenv("MYSQL_DATABASE")
 
 DATABASE_URL = (
-    f"mysql+pymysql://{MYSQL_USER}:{MYSQL_PASSWORD}"
-    f"@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DATABASE}"
+    f"mysql+pymysql://{settings.MYSQL_USER}:{settings.MYSQL_PASSWORD}"
+    f"@{settings.MYSQL_HOST}:{settings.MYSQL_PORT}/{settings.MYSQL_DATABASE}"
 )
 
 engine = create_engine(
