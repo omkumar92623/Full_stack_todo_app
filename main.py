@@ -1,13 +1,16 @@
 from fastapi import FastAPI, Depends,HTTPException,Request
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import create_engine,Column,Integer,VARCHAR,Boolean
-from sqlalchemy.orm import DeclarativeBase,Session,sessionmaker
+from sqlalchemy.orm import Session
 from typing import Annotated 
-from pydantic import BaseModel
 from slowapi.errors import RateLimitExceeded
 from fastapi.responses import JSONResponse
+
 from limiter import limiter
 from config import settings
+from models import Todo
+from database import get_db
+from schema import Create_Todo
+from database import Base,engine
 
 app = FastAPI()
 app.state.limiter = limiter
@@ -22,43 +25,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-
-DATABASE_URL = (
-    f"mysql+pymysql://{settings.MYSQL_USER}:{settings.MYSQL_PASSWORD}"
-    f"@{settings.MYSQL_HOST}:{settings.MYSQL_PORT}/{settings.MYSQL_DATABASE}"
-)
-
-engine = create_engine(
-    DATABASE_URL
-)
-
-SessionLocal = sessionmaker(autoflush=False,autocommit = False,bind=engine)
-
-class Base(DeclarativeBase):
-    pass
-
-class Create_Todo(BaseModel):
-    title:str
-
-class Todo(Base):
-    __tablename__ = "todos"
-
-    id = Column(Integer,primary_key= True,index = True)
-    title = Column(VARCHAR(100))
-    completed = Column(Boolean,default=False)
-
-Base.metadata.create_all(bind=engine)
-
-def get_db():
-    db=SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
 DBSession = Annotated[Session,Depends(get_db)]
 
+Base.metadata.create_all(bind=engine)
 
 @app.exception_handler(RateLimitExceeded)
 def rate_limit_handler(request:Request, exc:RateLimitExceeded):
