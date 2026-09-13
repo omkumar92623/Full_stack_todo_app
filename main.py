@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Depends,HTTPException,Request
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from typing import Annotated 
+from typing import Annotated, Optional 
 from slowapi.errors import RateLimitExceeded
 from fastapi.responses import JSONResponse
 
@@ -9,7 +9,7 @@ from limiter import limiter
 from config import settings
 from models import Todo
 from database import get_db
-from schema import Create_Todo
+from schema import Create_Todo, Update_Todo
 from database import Base,engine
 
 app = FastAPI()
@@ -78,19 +78,35 @@ def read_all(db:DBSession):
 
 @app.put("/todos/{todo_id}")
 @limiter.limit("5/minute")
-def update_todo(request:Request,todo_id:int,completed:bool,db:DBSession):
+def update_todo(
+    request: Request,
+    todo_id: int,
+    db: DBSession,
+    todo_data: Optional[Update_Todo] = None,
+    completed: Optional[bool] = None,
+):
     todo = db.query(Todo).filter(todo_id == Todo.id).first()
     if not todo:
         raise HTTPException(
             status_code=404,
             detail="Todo not found"
         )
-    todo.completed = completed
+    if todo_data and todo_data.title is not None:
+        todo.title = todo_data.title
+    if todo_data and todo_data.completed is not None:
+        todo.completed = todo_data.completed
+    elif completed is not None:
+        todo.completed = completed
+
     db.commit()
     db.refresh(todo)
-    return{
-        "Msg" : "Todo updated",
-        "data" : todo
+    return {
+        "Msg": "Todo updated",
+        "Data": {
+            "id": todo.id,
+            "title": todo.title,
+            "completed": todo.completed
+        }
     }
 
 @app.delete("/todos/{todo_id}")

@@ -552,7 +552,7 @@ async function loadTodos() {
     }
 
     // UPDATE
-    function populateUpdateDropdown() {
+    function populateUpdateDropdown(selectedId = null) {
       const select = document.getElementById('updateSelect');
       select.innerHTML = '<option value="">-- Choose a Todo --</option>';
       
@@ -562,6 +562,13 @@ async function loadTodos() {
         option.textContent = todo.todoIdName || todo.name || `Todo ${todo.id}`;
         select.appendChild(option);
       });
+
+      if (selectedId) {
+        select.value = selectedId;
+        loadSelectedTask();
+      } else {
+        document.getElementById('updateTodoIdName').value = '';
+      }
     }
 
     function loadSelectedTask() {
@@ -569,6 +576,8 @@ async function loadTodos() {
       const match = todos.find(t => t.id === id);
       if (match) {
         document.getElementById('updateTodoIdName').value = match.todoIdName || match.name || '';
+      } else {
+        document.getElementById('updateTodoIdName').value = '';
       }
     }
 
@@ -577,22 +586,34 @@ async function loadTodos() {
       const id = Number(document.getElementById('updateSelect').value);
       const newTitle = document.getElementById('updateTodoIdName').value.trim();
 
-      if (!id) return;
-
-      const response = await fetch(`${API_URL}/todos/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: newTitle })
-      });
-
-      if (!response.ok) {
-        alert("Failed to update todo");
+      if (!id) {
+        alert("Please select a todo from the dropdown.");
         return;
       }
 
-      triggerAlert('Record updated successfully!');
-      await loadTodos();
-      populateUpdateDropdown();
+      try {
+        const response = await fetch(`${API_URL}/todos/${id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: newTitle })
+        });
+
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          const detailMsg = Array.isArray(errData.detail)
+            ? errData.detail.map(d => `${d.loc ? d.loc.join('.') + ': ' : ''}${d.msg}`).join('\n')
+            : (errData.detail || "Failed to update todo");
+          alert(`Failed to update todo:\n${detailMsg}`);
+          return;
+        }
+
+        triggerAlert('Record updated successfully!');
+        await loadTodos();
+        populateUpdateDropdown(id);
+      } catch (err) {
+        console.error("Update error:", err);
+        alert("Failed to connect to the backend server.");
+      }
     });
 
     // DELETE
